@@ -295,6 +295,8 @@ function Jasmine2HTMLReporter(options) {
 
         for (var i = 0; i < suite._specs.length; i++) {
             var spec = suite._specs[i];
+            var specDesc = spec.description;
+            var uniqueSpecId = specDesc.substring(specDesc.indexOf('['), specDesc.indexOf(']')+1);
             html += '<div class="spec">';
             html += specAsHtml(spec);
                 html += '<div class="resume">';
@@ -302,19 +304,22 @@ function Jasmine2HTMLReporter(options) {
                     html += '<div class="screenshots">';
 
                     spec.screenshotsDiff.forEach((ele) => {
-                        html += '<div class="case">';
-                        html += '<span>';
-                        html += `${ele}`;
-                        html += '</span>';
-                            if (spec.screenshotsBaseline.includes(ele)){
-                                html += generateScreenshotElem(`${self.screenshotsFolder}baseline/${ele}`, 'Baseline')
-                            }
-                            if (spec.screenshotsActual.includes(ele)){
-                                html += generateScreenshotElem(`${self.screenshotsFolder}actual/${ele}`, 'Actual')
-                            }
-                            html += generateScreenshotElem(`${self.screenshotsFolder}diff/${ele}`, 'Difference');
+                        if(ele.includes(uniqueSpecId)){
+                            
+                            html += '<div class="case">';
+                            html += '<span>';
+                            html += `${ele}`;
+                            html += '</span>';
+                                if (spec.screenshotsBaseline.includes(ele)){
+                                    html += generateScreenshotElem(`${self.screenshotsFolder}baseline/${ele}`, 'Baseline')
+                                }
+                                if (spec.screenshotsActual.includes(ele)){
+                                    html += generateScreenshotElem(`${self.screenshotsFolder}actual/${ele}`, 'Actual')
+                                }
+                                html += generateScreenshotElem(`${self.screenshotsFolder}diff/${ele}`, 'Difference');
 
-                        html += '</div>'
+                            html += '</div>'
+                        }
                     });
                     html += '</div>';
                 }
