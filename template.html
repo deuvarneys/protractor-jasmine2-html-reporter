@@ -16,6 +16,12 @@
         .spec h3 {margin: 5px 0}
         .spec .description {margin: 1% 2%; width: 65%; float: left}
         .spec .resume {width: 29%; margin: 1%; float: left; text-align: center; }
+        .case { min-width: 500px; padding: 8px 0;}
+        .case img { max-width: 150px; max-height: 150px; }
+        .case > div { display: inline-block; }
+        .case span { display: block; }
+        .case:nth-child(odd){ background-color: #EEE; }
+        .case:nth-child(even){ background-color: #CCC; }
     </style>
 </head>
 <body>
@@ -238,7 +244,13 @@
 
 </section>
 
-
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+<script src="https://fat.github.io/zoom.js/js/zoom.js"></script>
+<script type="text/javascript">
+  $(".screenshots img").on("click", function(event){
+    $(event.target).closest(".spec").css("overflow", "visible").closest(".suite").css("overflow", "visible");
+  })
+</script>
 
 </body>
 </html>

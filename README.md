@@ -7,6 +7,7 @@ This work is inspired by:
 * [Jasmine Reporters](https://github.com/larrymyers/jasmine-reporters) from [@larrymyers](https://github.com/larrymyers)
 
 ## Usage
+###Modified to work with [Protractor image comparison](https://github.com/wswebcreation/protractor-image-comparison)
 The <code>protractor-jasmine2-html-reporter</code> is available via npm:
 
 <code>$ npm install protractor-jasmine2-html-reporter --save-dev</code>

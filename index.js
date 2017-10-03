@@ -2,12 +2,11 @@ var fs     = require('fs'),
     mkdirp = require('mkdirp'),
     _      = require('lodash'),
     path   = require('path'),
-    async  = require('async'),
     hat    = require('hat');
 
 require('string.prototype.startswith');
 
-var UNDEFINED, exportObject = exports, reportDate;
+var UNDEFINED, exportObject = exports;
 
 function sanitizeFilename(name){
     name = name.replace(/\s+/gi, '-'); // Replace white space with dash
@@ -20,7 +19,7 @@ function isSkipped(obj) { return obj.status === "pending"; }
 function isDisabled(obj) { return obj.status === "disabled"; }
 function parseDecimalRoundAndFixed(num,dec){
     var d =  Math.pow(10,dec);
-    return isNaN((Math.round(num * d) / d).toFixed(dec)) === true ? 0 : (Math.round(num * d) / d).toFixed(dec);
+    return (Math.round(num * d) / d).toFixed(dec);
 }
 function extend(dupe, obj) { // performs a shallow copy of all props of `obj` onto `dupe`
     for (var prop in obj) {
@@ -55,7 +54,7 @@ function rmdir(dir) {
         var list = fs.readdirSync(dir);
         for (var i = 0; i < list.length; i++) {
             var filename = path.join(dir, list[i]);
-            var stat = fs.statSync(filename);
+           var stat = fs.statSync(filename);
 
             if (stat.isDirectory()) {
                 // rmdir recursively
@@ -68,19 +67,6 @@ function rmdir(dir) {
         fs.rmdirSync(dir);
     }catch (e) { log("problem trying to remove a folder:" + dir); }
 }
-
-function getReportDate(){
-    if (reportDate === undefined)
-        reportDate = new Date();
-    return reportDate.getFullYear() + '' +
-            (reportDate.getMonth() + 1) +
-            reportDate.getDate() + ' ' +
-            reportDate.getHours() + '' +
-            reportDate.getMinutes() + '' +
-            reportDate.getSeconds() + ',' +
-            reportDate.getMilliseconds();
-}
-
 
 function Jasmine2HTMLReporter(options) {
 
@@ -98,13 +84,7 @@ function Jasmine2HTMLReporter(options) {
     self.fixedScreenshotName = options.fixedScreenshotName === UNDEFINED ? false : options.fixedScreenshotName;
     self.consolidate = options.consolidate === UNDEFINED ? true : options.consolidate;
     self.consolidateAll = self.consolidate !== false && (options.consolidateAll === UNDEFINED ? true : options.consolidateAll);
-    self.fileNameSeparator = options.fileNameSeparator === UNDEFINED ? '-' : options.fileNameSeparator;
-    self.fileNamePrefix = options.fileNamePrefix === UNDEFINED ? '' : options.fileNamePrefix;
-    self.fileNameSuffix = options.fileNameSuffix === UNDEFINED ? '' : options.fileNameSuffix;
-    self.fileNameDateSuffix = options.fileNameDateSuffix === UNDEFINED ? false : options.fileNameDateSuffix;
-    self.fileName = options.fileName === UNDEFINED ? 'htmlReport' : options.fileName;
-    self.cleanDestination = options.cleanDestination === UNDEFINED ? true : options.cleanDestination;
-    self.showPassed = options.showPassed === UNDEFINED ? true : options.showPassed;
+    self.filePrefix = options.filePrefix || (self.consolidateAll ? 'htmlReport' : 'htmlReport-');
 
     var suites = [],
         currentSuite = null,
@@ -127,34 +107,13 @@ function Jasmine2HTMLReporter(options) {
         return __specs[spec.id];
     }
 
-    function getReportFilename(specName){
-        var name = '';
-        console.log(self.fileNamePrefix);
-        if (self.fileNamePrefix)
-            name += self.fileNamePrefix + self.fileNameSeparator;
-
-        name += self.fileName;
-
-        if (specName !== undefined)
-            name += self.fileNameSeparator + specName;
-
-        if (self.fileNameSuffix)
-            name += self.fileNameSeparator + self.fileNameSuffix;
-
-        if (self.fileNameDateSuffix)
-            name += self.fileNameSeparator + getReportDate();
-
-        return name;
-    }
-
     self.jasmineStarted = function(summary) {
         totalSpecsDefined = summary && summary.totalSpecsDefined || NaN;
         exportObject.startTime = new Date();
         self.started = true;
 
-        //Delete previous reports unless cleanDirectory is false
-        if (self.cleanDestination)
-            rmdir(self.savePath);
+        //Delete previous screenshoots
+        rmdir(self.savePath);
 
     };
     self.suiteStarted = function(suite) {
@@ -201,21 +160,42 @@ function Jasmine2HTMLReporter(options) {
                 spec.screenshot = sanitizeFilename(spec.description) + '.png';
 
             browser.takeScreenshot().then(function (png) {
-                var screenshotPath = path.join(
-                    self.savePath,
-                    self.screenshotsFolder,
-                    spec.screenshot
-                );
+                browser.getCapabilities().then(function (capabilities) {
+                    var screenshotPath;
 
-                mkdirp(path.dirname(screenshotPath), function (err) {
-                    if (err) {
-                        throw new Error('Could not create directory for ' + screenshotPath);
-                    }
-                    writeScreenshot(png, screenshotPath);
+                    screenshotPath = path.join(self.savePath + self.screenshotsFolder);
+
+                    spec.screenshotsBaseline = [];
+                    spec.screenshotsActual = [];
+                    spec.screenshotsDiff = [];
+                    fs.readdirSync(screenshotPath + 'baseline/').forEach(file => {
+                        if (file.includes('.png')) {
+                            spec.screenshotsBaseline.push(file);
+                        }
+                    });
+                    fs.readdirSync(screenshotPath + 'actual/').forEach(file => {
+                        if (file.includes('.png')) {
+                            spec.screenshotsActual.push(file);
+                        }
+                    });
+                    fs.readdirSync(screenshotPath + 'diff/').forEach(file => {
+                        if (file.includes('.png')) {
+                            spec.screenshotsDiff.push(file);
+                        }
+                    });
+
+                    //Folder structure and filename
+                    // screenshotPath = path.join(self.savePath + self.screenshotsFolder, spec.screenshot);
+
+                    // mkdirp(path.dirname(screenshotPath), function (err) {
+                    //     if (err) {
+                    //         throw new Error('Could not create directory for ' + screenshotPath);
+                    //     }
+                    //     writeScreenshot(png, screenshotPath);
+                    // });
                 });
             });
         }
-
 
     };
     self.suiteDone = function(suite) {
@@ -227,7 +207,6 @@ function Jasmine2HTMLReporter(options) {
         suite._endTime = new Date();
         currentSuite = suite._parent;
     };
-
     self.jasmineDone = function() {
         if (currentSuite) {
             // focused spec (fit) -- suiteDone was never called
@@ -240,7 +219,7 @@ function Jasmine2HTMLReporter(options) {
         }
         // if we have anything to write here, write out the consolidated file
         if (output) {
-            wrapOutputAndWriteFile(getReportFilename(), output);
+            wrapOutputAndWriteFile(self.filePrefix, output);
         }
         //log("Specs skipped but not reported (entire suite skipped or targeted to specific specs)", totalSpecsDefined - totalSpecsExecuted + totalSpecsDisabled);
 
@@ -265,7 +244,7 @@ function Jasmine2HTMLReporter(options) {
 
     /******** Helper functions with closure access for simplicity ********/
     function generateFilename(suite) {
-        return getReportFilename(getFullyQualifiedSuiteName(suite, true));
+        return self.filePrefix + getFullyQualifiedSuiteName(suite, true) + '.html';
     }
 
     function getFullyQualifiedSuiteName(suite, isFilename) {
@@ -314,15 +293,32 @@ function Jasmine2HTMLReporter(options) {
         html += '<li>Failures: <strong>' + suite._failures + '</strong></li>';
         html += '</ul> </header>';
 
+        console.log('SPECS', suite._specs);
+
         for (var i = 0; i < suite._specs.length; i++) {
             var spec = suite._specs[i];
             html += '<div class="spec">';
             html += specAsHtml(spec);
                 html += '<div class="resume">';
                 if (spec.screenshot !== UNDEFINED){
-                    html += '<a href="' + self.screenshotsFolder + spec.screenshot + '">';
-                    html += '<img src="' + self.screenshotsFolder + spec.screenshot + '" width="100" height="100" />';
-                    html += '</a>';
+                    html += '<div class="screenshots">';
+
+                    spec.screenshotsDiff.forEach((ele) => {
+                        html += '<div class="case">';
+                        html += '<span>';
+                        html += `${ele}`;
+                        html += '</span>';
+                            if (spec.screenshotsBaseline.includes(ele)){
+                                html += generateScreenshotElem(`${self.screenshotsFolder}baseline/${ele}`, 'Baseline')
+                            }
+                            if (spec.screenshotsActual.includes(ele)){
+                                html += generateScreenshotElem(`${self.screenshotsFolder}actual/${ele}`, 'Actual')
+                            }
+                            html += generateScreenshotElem(`${self.screenshotsFolder}diff/${ele}`, 'Difference');
+
+                        html += '</div>'
+                    });
+                    html += '</div>';
                 }
                 html += '<br />';
                 var num_tests= spec.failedExpectations.length + spec.passedExpectations.length;
@@ -333,6 +329,18 @@ function Jasmine2HTMLReporter(options) {
         }
         html += '\n </article>';
         return html;
+    }
+
+    function generateScreenshotElem(screenshotPath, title) {
+        var returnString = '';
+        returnString += '<div>';
+        returnString += `<img src="${screenshotPath}" data-action="zoom"/>`;
+        returnString += `<a href="${screenshotPath}">`;
+        returnString += `<span>${title}</span>`
+        returnString += '</a>';
+        returnString += '</div>';
+        return returnString;
+
     }
     function specAsHtml(spec) {
 
@@ -346,18 +354,12 @@ function Jasmine2HTMLReporter(options) {
                 html += expectation.message + '<span style="padding:0 1em;color:red;">&#10007;</span>';
                 html += '</li>';
             });
-            if(self.showPassed === true){
-                _.each(spec.passedExpectations, function(expectation){
-                    html += '<li>';
-                    html += expectation.message + '<span style="padding:0 1em;color:green;">&#10003;</span>';
-                    html += '</li>';
-                });
-            }
+            _.each(spec.passedExpectations, function(expectation){
+                html += '<li>';
+                html += expectation.message + '<span style="padding:0 1em;color:green;">&#10003;</span>';
+                html += '</li>';
+            });
             html += '</ul></div>';
-        }
-        else{
-            html += '<span style="padding:0 1em;color:orange;">***Skipped***</span>';
-            html += '</div>';
         }
         return html;
     }
@@ -402,10 +404,20 @@ function Jasmine2HTMLReporter(options) {
     };
 
     // To remove complexity and be more DRY about the silly preamble and <testsuites> element
-    var prefix = '<!DOCTYPE html><html><head lang=en><meta charset=UTF-8><title>Test Report -  ' + getReportDate() + '</title><style>body{font-family:"open_sans",sans-serif}.suite{width:100%;overflow:auto}.suite .stats{margin:0;width:90%;padding:0}.suite .stats li{display:inline;list-style-type:none;padding-right:20px}.suite h2{margin:0}.suite header{margin:0;padding:5px 0 5px 5px;background:#003d57;color:white}.spec{width:100%;overflow:auto;border-bottom:1px solid #e5e5e5}.spec:hover{background:#e8f3fb}.spec h3{margin:5px 0}.spec .description{margin:1% 2%;width:65%;float:left}.spec .resume{width:29%;margin:1%;float:left;text-align:center}</style></head>';
+    var prefix = '<!DOCTYPE html><html><head lang=en><meta charset=UTF-8><title></title><style>body{font-family:"open_sans",sans-serif}.suite{width:100%;overflow:auto}.suite .stats{margin:0;width:90%;padding:0}.suite .stats li{display:inline;list-style-type:none;padding-right:20px}.suite h2{margin:0}.suite header{margin:0;padding:5px 0 5px 5px;background:#003d57;color:white}.spec{width:100%;overflow:auto;border-bottom:1px solid #e5e5e5}.spec:hover{background:#e8f3fb}.spec h3{margin:5px 0}.spec .description{margin:1% 2%;width:65%;float:left}.spec .resume{width:29%;margin:1%;float:left;text-align:center}.case { min-width: 500px; padding: 8px 0;}.case img { max-width: 150px; max-height: 150px; }.case > div { display: inline-block; }.case span { display: block; }.case:nth-child(odd){ background-color: #EEE; }.case:nth-child(even){ background-color: #CCC; }</style></head>';
         prefix += '<body><section>';
-    var suffix = '\n</section></body></html>';
+    var suffix = `\n</section>\n
 
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+    <script src="https://fat.github.io/zoom.js/js/zoom.js"></script>
+    <script type="text/javascript">
+      $(".screenshots img").on("click", function(event){
+        $(event.target).closest(".spec").css("overflow", "visible").closest(".suite").css("overflow", "visible");
+      })
+    </script>
+
+
+    </body></html>`;
     function wrapOutputAndWriteFile(filename, text) {
         if (filename.substr(-5) !== '.html') { filename += '.html'; }
         self.writeFile(filename, (prefix + text + suffix));
