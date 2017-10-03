@@ -293,8 +293,6 @@ function Jasmine2HTMLReporter(options) {
         html += '<li>Failures: <strong>' + suite._failures + '</strong></li>';
         html += '</ul> </header>';
 
-        console.log('SPECS', suite._specs);
-
         for (var i = 0; i < suite._specs.length; i++) {
             var spec = suite._specs[i];
             html += '<div class="spec">';
