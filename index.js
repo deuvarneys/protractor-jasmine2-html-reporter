@@ -164,11 +164,12 @@ function Jasmine2HTMLReporter(options) {
                     var screenshotPath;
 
                     screenshotPath = path.join(self.savePath + self.screenshotsFolder);
+                    var baselinePath = path.resolve(self.savePath + '../../e2e-tests/screenshots/baseline');
 
                     spec.screenshotsBaseline = [];
                     spec.screenshotsActual = [];
                     spec.screenshotsDiff = [];
-                    fs.readdirSync(screenshotPath + 'baseline/').forEach(file => {
+                    fs.readdirSync(baselinePath).forEach(file => {
                         if (file.includes('.png')) {
                             spec.screenshotsBaseline.push(file);
                         }
@@ -305,13 +306,13 @@ function Jasmine2HTMLReporter(options) {
 
                     spec.screenshotsDiff.forEach((ele) => {
                         if(ele.includes(uniqueSpecId)){
-                            
+                            var baselinePath = path.resolve(self.savePath + '../../e2e-tests/screenshots/baseline');
                             html += '<div class="case">';
                             html += '<span>';
                             html += `${ele}`;
                             html += '</span>';
                                 if (spec.screenshotsBaseline.includes(ele)){
-                                    html += generateScreenshotElem(`${self.screenshotsFolder}baseline/${ele}`, 'Baseline')
+                                    html += generateScreenshotElem(`${baselinePath}${ele}`, 'Baseline')
                                 }
                                 if (spec.screenshotsActual.includes(ele)){
                                     html += generateScreenshotElem(`${self.screenshotsFolder}actual/${ele}`, 'Actual')
